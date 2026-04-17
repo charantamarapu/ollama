@@ -18,44 +18,49 @@
     *{box-sizing:border-box}
     body{
       margin:0;
-      font-family:Arial, Helvetica, sans-serif;
+      font-family:Arial,Helvetica,sans-serif;
       background:var(--bg);
       color:var(--text);
     }
     .container{
-      max-width:1000px;
-      margin:30px auto;
+      max-width:1020px;
+      margin:28px auto;
       padding:16px;
     }
+    .top-bar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:16px;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    h1{margin:0}
     .layout{
       display:grid;
-      grid-template-columns:320px 1fr;
+      grid-template-columns:310px 1fr;
       gap:16px;
     }
-    @media (max-width: 800px){
-      .layout{grid-template-columns:1fr}
-    }
+    @media(max-width:800px){.layout{grid-template-columns:1fr}}
     .card{
       background:var(--card);
       border:1px solid var(--border);
       border-radius:14px;
       padding:16px;
     }
-    h1,h2{margin-top:0}
+    h2{margin-top:0}
     label{
       display:block;
       margin:12px 0 6px;
-      font-size:14px;
+      font-size:13px;
       color:var(--muted);
     }
-    input, textarea, select, button{
+    input, textarea{
       width:100%;
       border-radius:10px;
       border:1px solid var(--border);
-      padding:12px;
+      padding:11px 13px;
       font-size:15px;
-    }
-    input, textarea, select{
       background:var(--soft);
       color:var(--text);
     }
@@ -64,13 +69,74 @@
       min-height:90px;
     }
     button{
+      width:100%;
+      border-radius:10px;
+      border:none;
+      padding:11px 13px;
+      font-size:15px;
       background:var(--primary);
       color:white;
       cursor:pointer;
-      border:none;
       margin-top:10px;
     }
     button.secondary{background:#475569}
+    button.danger{background:#7f1d1d;color:#fca5a5}
+
+    /* ── MODE TOGGLE ─────────────────────────────── */
+    .mode-wrap{
+      margin-top:14px;
+    }
+    .mode-label{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+    .toggle-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .mode-name{
+      font-weight:700;
+      font-size:15px;
+      min-width:100px;
+    }
+    .mode-name.fast{color:#34d399}
+    .mode-name.thinking{color:#818cf8}
+    .toggle{
+      position:relative;
+      width:56px;
+      height:28px;
+      flex-shrink:0;
+    }
+    .toggle input{display:none}
+    .slider{
+      position:absolute;
+      inset:0;
+      border-radius:20px;
+      background:#22c55e;
+      cursor:pointer;
+      transition:background .3s;
+    }
+    .slider::before{
+      content:"";
+      position:absolute;
+      top:4px;left:4px;
+      width:20px;height:20px;
+      border-radius:50%;
+      background:white;
+      transition:transform .3s;
+    }
+    .toggle input:checked + .slider{background:#6366f1}
+    .toggle input:checked + .slider::before{transform:translateX(28px)}
+    .mode-hint{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+      line-height:1.6;
+    }
+    /* ─────────────────────────────────────────────── */
+
     .chat-box{
       height:420px;
       overflow-y:auto;
@@ -81,251 +147,319 @@
       margin-bottom:12px;
     }
     .msg{
-      padding:10px 12px;
+      padding:10px 13px;
       border-radius:10px;
       margin-bottom:10px;
-      line-height:1.5;
+      line-height:1.55;
       white-space:pre-wrap;
+      word-break:break-word;
     }
     .user{
       background:#1d4ed8;
       color:white;
-      margin-left:40px;
+      margin-left:30px;
     }
     .bot{
       background:#1e293b;
       color:#e2e8f0;
-      margin-right:40px;
+      margin-right:30px;
+    }
+    .msg-meta{
+      font-size:11px;
+      color:#64748b;
+      margin-bottom:4px;
+    }
+    .think-block{
+      background:#0f1a14;
+      border:1px solid #1f4d2e;
+      color:#6ee7b7;
+      border-radius:8px;
+      padding:8px 10px;
+      font-size:12px;
+      margin-bottom:8px;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .think-toggle{
+      font-size:12px;
+      color:#4ade80;
+      cursor:pointer;
+      background:none;
+      border:none;
+      width:auto;
+      margin:0 0 6px;
+      padding:0;
+      text-align:left;
     }
     .status{
       margin-top:10px;
-      font-size:14px;
-      color:#94a3b8;
+      font-size:13px;
+      color:var(--muted);
       white-space:pre-wrap;
     }
     .ok{color:#86efac}
     .err{color:#fca5a5}
-    .hint{
-      font-size:12px;
-      color:#94a3b8;
-      margin-top:6px;
-      line-height:1.5;
-    }
   </style>
 </head>
 <body>
-  <div class="container">
+<div class="container">
+
+  <div class="top-bar">
     <h1>🤖 Ollama Chat</h1>
-
-    <div class="layout">
-      <div class="card">
-        <h2>Settings</h2>
-
-        <label for="ngrokUrl">Ngrok URL</label>
-        <input id="ngrokUrl" type="text" placeholder="https://abcd-1234.ngrok-free.app" />
-
-        <label for="model">Model</label>
-        <input id="model" type="text" placeholder="gemma4:e2b" />
-
-        <label for="mode">Mode</label>
-        <select id="mode">
-          <option value="fast">Fast mode</option>
-          <option value="thinking">Thinking mode</option>
-        </select>
-
-        <div class="hint">
-          Fast mode = lower temperature, more direct replies.<br>
-          Thinking mode = higher temperature, more exploratory replies.
-        </div>
-
-        <button id="saveSettings">Save Settings</button>
-        <button id="checkHealth" class="secondary">Check Connection</button>
-
-        <div id="status" class="status">Enter ngrok URL, model, and mode.</div>
-      </div>
-
-      <div class="card">
-        <h2>Chat</h2>
-
-        <div id="chatBox" class="chat-box"></div>
-
-        <label for="message">Message</label>
-        <textarea id="message" placeholder="Type your message..."></textarea>
-
-        <button id="sendBtn">Send</button>
-        <button id="clearBtn" class="secondary">Clear Chat</button>
-      </div>
-    </div>
   </div>
 
-  <script>
-    const ngrokUrlEl = document.getElementById("ngrokUrl");
-    const modelEl = document.getElementById("model");
-    const modeEl = document.getElementById("mode");
-    const statusEl = document.getElementById("status");
-    const chatBox = document.getElementById("chatBox");
-    const messageEl = document.getElementById("message");
+  <div class="layout">
 
-    const NGROK_HEADERS = {
-      "Content-Type": "application/json",
-      "ngrok-skip-browser-warning": "1"
-    };
+    <!-- SETTINGS -->
+    <div class="card">
+      <h2>Settings</h2>
 
-    function normalizeUrl(url) {
-      return (url || "").trim().replace(/\/+$/, "");
+      <label for="ngrokUrl">Ngrok URL</label>
+      <input id="ngrokUrl" type="text" placeholder="https://abcd-1234.ngrok-free.app" />
+
+      <label for="model">Model</label>
+      <input id="model" type="text" placeholder="gemma4:e4b" />
+
+      <!-- MODE TOGGLE -->
+      <div class="mode-wrap">
+        <div class="mode-label">Mode</div>
+        <div class="toggle-row">
+          <span class="mode-name fast" id="modeName">Fast</span>
+          <label class="toggle">
+            <input type="checkbox" id="modeToggle" />
+            <span class="slider"></span>
+          </label>
+          <span style="font-size:13px;color:#818cf8">Thinking</span>
+        </div>
+        <div class="mode-hint" id="modeHint">
+          ⚡ Fast — sends <code>think:false</code> to Ollama. Skips the internal reasoning chain. Faster, ideal for simple queries.
+        </div>
+      </div>
+
+      <button id="saveSettings">💾 Save Settings</button>
+      <button id="checkHealth" class="secondary">🔌 Check Connection</button>
+
+      <div id="status" class="status">Enter ngrok URL and model, then save.</div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="card">
+      <h2 id="chatTitle">Chat <span style="font-size:13px;color:#34d399;font-weight:normal">[Fast mode]</span></h2>
+
+      <div id="chatBox" class="chat-box"></div>
+
+      <label for="message">Message (Enter to send, Shift+Enter for newline)</label>
+      <textarea id="message" placeholder="Type your message..."></textarea>
+
+      <button id="sendBtn">➤ Send</button>
+      <button id="clearBtn" class="secondary">🗑 Clear Chat</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const ngrokUrlEl  = document.getElementById("ngrokUrl");
+  const modelEl     = document.getElementById("model");
+  const modeToggle  = document.getElementById("modeToggle");
+  const modeNameEl  = document.getElementById("modeName");
+  const modeHintEl  = document.getElementById("modeHint");
+  const chatTitleEl = document.getElementById("chatTitle");
+  const statusEl    = document.getElementById("status");
+  const chatBox     = document.getElementById("chatBox");
+  const messageEl   = document.getElementById("message");
+
+  const NGROK_HEADERS = {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "1"
+  };
+
+  function normalizeUrl(u){ return (u||"").trim().replace(/\/+$/,""); }
+  function setStatus(t,type=""){
+    statusEl.className="status"+(type?" "+type:"");
+    statusEl.textContent=t;
+  }
+
+  // ── Mode helpers
+  function isThinking(){ return modeToggle.checked; }
+
+  function updateModeUI(){
+    const thinking = isThinking();
+    modeNameEl.textContent  = thinking ? "Thinking" : "Fast";
+    modeNameEl.className    = "mode-name " + (thinking ? "thinking" : "fast");
+    modeHintEl.innerHTML    = thinking
+      ? "🧠 Thinking — sends <code>think:true</code> to Ollama. Gemma 4 activates its internal reasoning chain. Slower but deeper."
+      : "⚡ Fast — sends <code>think:false</code> to Ollama. Skips the internal reasoning chain. Faster, ideal for simple queries.";
+    chatTitleEl.innerHTML   = thinking
+      ? "Chat <span style='font-size:13px;color:#818cf8;font-weight:normal'>[Thinking mode]</span>"
+      : "Chat <span style='font-size:13px;color:#34d399;font-weight:normal'>[Fast mode]</span>";
+  }
+
+  modeToggle.addEventListener("change", ()=>{
+    updateModeUI();
+    localStorage.setItem("ollama_thinking", isThinking() ? "1" : "0");
+  });
+
+  // ── Persist settings
+  function saveSettings(){
+    localStorage.setItem("ollama_ngrok_url", normalizeUrl(ngrokUrlEl.value));
+    localStorage.setItem("ollama_model", modelEl.value.trim());
+    localStorage.setItem("ollama_thinking", isThinking() ? "1" : "0");
+    setStatus("✅ Settings saved.", "ok");
+  }
+
+  function loadSettings(){
+    ngrokUrlEl.value    = localStorage.getItem("ollama_ngrok_url") || "";
+    modelEl.value       = localStorage.getItem("ollama_model")     || "gemma4:e4b";
+    modeToggle.checked  = localStorage.getItem("ollama_thinking")  === "1";
+    updateModeUI();
+
+    const saved = JSON.parse(localStorage.getItem("ollama_messages") || "[]");
+    if(saved.length){
+      saved.forEach(m => appendMessage(m.role, m.content, m.thinking || ""));
+    } else {
+      appendMessage("bot","Ready. Save settings and start chatting.","");
+    }
+  }
+
+  function getSavedMessages(){ return JSON.parse(localStorage.getItem("ollama_messages")||"[]"); }
+  function saveMessages(m){ localStorage.setItem("ollama_messages", JSON.stringify(m)); }
+
+  // ── Strip Gemma's <think> block from reply
+  function parseReply(raw){
+    // Gemma 4 wraps internal thoughts in <think>...</think>
+    const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
+    const thinking   = thinkMatch ? thinkMatch[1].trim() : "";
+    const answer     = raw.replace(/<think>[\s\S]*?<\/think>/i,"").trim();
+    return { answer, thinking };
+  }
+
+  // ── Render a message bubble
+  function appendMessage(role, content, thinking=""){
+    const wrap = document.createElement("div");
+
+    if(thinking){
+      const btn = document.createElement("button");
+      btn.className = "think-toggle";
+      btn.textContent = "▶ Show reasoning";
+      const block = document.createElement("div");
+      block.className = "think-block";
+      block.style.display = "none";
+      block.textContent = thinking;
+      btn.addEventListener("click",()=>{
+        const open = block.style.display !== "none";
+        block.style.display = open ? "none" : "block";
+        btn.textContent = open ? "▶ Show reasoning" : "▼ Hide reasoning";
+      });
+      wrap.appendChild(btn);
+      wrap.appendChild(block);
     }
 
-    function setStatus(text, type = "") {
-      statusEl.className = "status" + (type ? " " + type : "");
-      statusEl.textContent = text;
+    const div = document.createElement("div");
+    div.className = "msg " + (role === "user" ? "user" : "bot");
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    div.appendChild(meta);
+    const body = document.createElement("div");
+    body.textContent = content;
+    div.appendChild(body);
+    wrap.appendChild(div);
+
+    chatBox.appendChild(wrap);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  // ── Health check
+  async function checkHealth(){
+    const base = normalizeUrl(ngrokUrlEl.value);
+    if(!base){ setStatus("Please enter ngrok URL.","err"); return; }
+    setStatus("Checking connection...");
+    try{
+      const res  = await fetch(base+"/health",{headers:NGROK_HEADERS});
+      const data = await res.json();
+      const modelList = Array.isArray(data.models)
+        ? data.models.map(m=>m.name).join(", ")
+        : "—";
+      setStatus(
+        "Status: "+data.status+
+        "\nOllama connected: "+data.ollama_connected+
+        "\nModels: "+modelList,
+        data.ollama_connected ? "ok" : "err"
+      );
+    } catch(err){
+      setStatus("Connection failed: "+err.message,"err");
     }
+  }
 
-    function getTemperatureByMode(mode) {
-      if (mode === "thinking") return 0.9;
-      return 0.2;
+  // ── Send chat
+  async function sendMessage(){
+    const base      = normalizeUrl(ngrokUrlEl.value);
+    const model     = modelEl.value.trim() || "gemma4:e4b";
+    const thinking  = isThinking();
+    const text      = messageEl.value.trim();
+
+    if(!base){ setStatus("Please enter ngrok URL.","err"); return; }
+    if(!text){ setStatus("Please enter a message.","err"); return; }
+
+    const messages  = getSavedMessages();
+    const userMsg   = { role:"user", content:text, thinking:"" };
+    messages.push(userMsg);
+    saveMessages(messages);
+    appendMessage("user", text, "");
+    messageEl.value = "";
+    setStatus((thinking?"🧠 Thinking...":"⚡ Fast mode..."));
+
+    const payload = messages.map(m=>({
+      role: m.role==="bot" ? "assistant" : m.role,
+      content: m.content
+    }));
+
+    try{
+      const res  = await fetch(base+"/v1/chat",{
+        method:"POST",
+        headers: NGROK_HEADERS,
+        body: JSON.stringify({
+          model,
+          stream:    false,
+          think:     thinking,        // ← Ollama's official think parameter
+          temperature: thinking ? 0.7 : 0.2,
+          messages:  payload
+        })
+      });
+
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error||"Request failed");
+
+      const raw   = (data.message && data.message.content) || data.response || "";
+      const { answer, thinking: thinkText } = parseReply(raw);
+
+      const botMsg = { role:"bot", content: answer, thinking: thinkText };
+      const updated = getSavedMessages();
+      updated.push(botMsg);
+      saveMessages(updated);
+      appendMessage("bot", answer, thinkText);
+      setStatus("✅ Done ("+(thinking?"Thinking":"Fast")+" mode).","ok");
+    } catch(err){
+      setStatus("❌ Chat error: "+err.message,"err");
     }
+  }
 
-    function saveSettings() {
-      localStorage.setItem("ollama_ngrok_url", normalizeUrl(ngrokUrlEl.value));
-      localStorage.setItem("ollama_model", modelEl.value.trim());
-      localStorage.setItem("ollama_mode", modeEl.value);
-      setStatus("Settings saved.", "ok");
-    }
+  function clearChat(){
+    localStorage.removeItem("ollama_messages");
+    chatBox.innerHTML="";
+    appendMessage("bot","Chat cleared.","");
+    setStatus("Chat cleared.","ok");
+  }
 
-    function loadSettings() {
-      ngrokUrlEl.value = localStorage.getItem("ollama_ngrok_url") || "";
-      modelEl.value = localStorage.getItem("ollama_model") || "gemma4:e2b";
-      modeEl.value = localStorage.getItem("ollama_mode") || "fast";
+  document.getElementById("saveSettings").addEventListener("click", saveSettings);
+  document.getElementById("checkHealth").addEventListener("click", checkHealth);
+  document.getElementById("sendBtn").addEventListener("click", sendMessage);
+  document.getElementById("clearBtn").addEventListener("click", clearChat);
+  messageEl.addEventListener("keydown", e=>{
+    if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+  });
 
-      const saved = JSON.parse(localStorage.getItem("ollama_messages") || "[]");
-      if (saved.length > 0) {
-        saved.forEach(m => appendMessage(m.role, m.content));
-      } else {
-        appendMessage("bot", "Ready. Save settings and start chatting.");
-      }
-    }
-
-    function getSavedMessages() {
-      return JSON.parse(localStorage.getItem("ollama_messages") || "[]");
-    }
-
-    function saveMessages(messages) {
-      localStorage.setItem("ollama_messages", JSON.stringify(messages));
-    }
-
-    function appendMessage(role, content) {
-      const div = document.createElement("div");
-      div.className = "msg " + role;
-      div.textContent = content;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    async function checkHealth() {
-      const baseUrl = normalizeUrl(ngrokUrlEl.value);
-      if (!baseUrl) {
-        setStatus("Please enter ngrok URL.", "err");
-        return;
-      }
-
-      setStatus("Checking connection...");
-      try {
-        const res = await fetch(baseUrl + "/health", {
-          headers: NGROK_HEADERS
-        });
-        const data = await res.json();
-        setStatus(
-          "Status: " + data.status +
-          "\nOllama connected: " + data.ollama_connected,
-          data.ollama_connected ? "ok" : "err"
-        );
-      } catch (err) {
-        setStatus("Connection failed: " + err.message, "err");
-      }
-    }
-
-    async function sendMessage() {
-      const baseUrl = normalizeUrl(ngrokUrlEl.value);
-      const model = modelEl.value.trim() || "gemma4:e2b";
-      const mode = modeEl.value || "fast";
-      const temperature = getTemperatureByMode(mode);
-      const text = messageEl.value.trim();
-
-      if (!baseUrl) {
-        setStatus("Please enter ngrok URL.", "err");
-        return;
-      }
-
-      if (!text) {
-        setStatus("Please enter a message.", "err");
-        return;
-      }
-
-      const messages = getSavedMessages();
-      const userMsg = { role: "user", content: text };
-      messages.push(userMsg);
-      saveMessages(messages);
-      appendMessage("user", text);
-      messageEl.value = "";
-      setStatus("Sending in " + mode + " mode...");
-
-      try {
-        const res = await fetch(baseUrl + "/v1/chat", {
-          method: "POST",
-          headers: NGROK_HEADERS,
-          body: JSON.stringify({
-            model: model,
-            stream: false,
-            temperature: temperature,
-            messages: messages.map(m => ({
-              role: m.role === "bot" ? "assistant" : m.role,
-              content: m.content
-            }))
-          })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "Request failed");
-        }
-
-        const reply =
-          (data.message && data.message.content) ||
-          data.response ||
-          "No response returned.";
-
-        const botMsg = { role: "bot", content: reply };
-        const updated = getSavedMessages();
-        updated.push(botMsg);
-        saveMessages(updated);
-        appendMessage("bot", reply);
-        setStatus("Done in " + mode + " mode.", "ok");
-      } catch (err) {
-        setStatus("Chat error: " + err.message, "err");
-      }
-    }
-
-    function clearChat() {
-      localStorage.removeItem("ollama_messages");
-      chatBox.innerHTML = "";
-      appendMessage("bot", "Chat cleared.");
-      setStatus("Chat cleared.", "ok");
-    }
-
-    document.getElementById("saveSettings").addEventListener("click", saveSettings);
-    document.getElementById("checkHealth").addEventListener("click", checkHealth);
-    document.getElementById("sendBtn").addEventListener("click", sendMessage);
-    document.getElementById("clearBtn").addEventListener("click", clearChat);
-
-    messageEl.addEventListener("keydown", function(e) {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    loadSettings();
-  </script>
+  loadSettings();
+</script>
 </body>
 </html>
