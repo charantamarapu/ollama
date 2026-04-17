@@ -214,7 +214,7 @@
       <label for="model">Model</label>
       <input id="model" type="text" placeholder="gemma4:e4b" />
 
-      <!-- IMPROVED MODE TOGGLE -->
+      <!-- MODE TOGGLE -->
       <div class="mode-wrap">
         <div class="mode-label">Response Mode</div>
         <div class="toggle-row">
@@ -276,7 +276,6 @@
 
   function updateModeUI(){
     const thinking = isThinking();
-    // Update colors so the active side lights up, inactive dims
     lblFast.style.color  = thinking ? "#475569" : "#34d399";
     lblThink.style.color = thinking ? "#818cf8" : "#475569";
     
@@ -315,11 +314,28 @@
   function getSavedMessages(){ return JSON.parse(localStorage.getItem("ollama_messages")||"[]"); }
   function saveMessages(m){ localStorage.setItem("ollama_messages", JSON.stringify(m)); }
 
-  // ── Parse out reasoning blocks
+  // ── Parse out Gemma 4's specific reasoning blocks
   function parseReply(raw){
-    const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
-    const thinking   = thinkMatch ? thinkMatch[1].trim() : "";
-    const answer     = raw.replace(/<think>[\s\S]*?<\/think>/i,"").trim();
+    // Gemma 4 outputs thought tags like <|channel>thought\n ... <channel|>
+    // But it may also use <think> depending on the Ollama wrapper.
+    let thinking = "";
+    let answer = raw;
+    
+    // Check for Ollama standard <think> wrapper
+    const thinkMatch1 = raw.match(/<think>([\s\S]*?)<\/think>/i);
+    if(thinkMatch1){
+      thinking = thinkMatch1[1].trim();
+      answer = raw.replace(/<think>[\s\S]*?<\/think>/i,"").trim();
+    } 
+    // Check for Gemma 4 native <|channel>thought\n ... <channel|> wrapper
+    else {
+      const thinkMatch2 = raw.match(/<\|channel>thought\n([\s\S]*?)<channel\|>/i);
+      if(thinkMatch2){
+        thinking = thinkMatch2[1].trim();
+        answer = raw.replace(/<\|channel>thought\n[\s\S]*?<channel\|>/i,"").trim();
+      }
+    }
+    
     return { answer, thinking };
   }
 
@@ -327,7 +343,8 @@
   function appendMessage(role, content, thinking=""){
     const wrap = document.createElement("div");
 
-    if(thinking){
+    // Only render the thinking block if there's actual text inside it
+    if(thinking && thinking.trim().length > 0){
       const btn = document.createElement("button");
       btn.className = "think-toggle";
       btn.textContent = "▶ Show reasoning";
@@ -383,10 +400,12 @@
 
     const messages  = getSavedMessages();
     
-    // Inject a system message to force direct answers if Fast Mode is on
-    const systemPrompt = thinking 
-      ? "Take a deep breath and reason step by step before answering."
-      : "Answer directly and concisely. Do NOT use <think> tags. Do NOT provide reasoning.";
+    // Gemma 4 specifically uses <|think|> in the system prompt to trigger thinking.
+    // If we want FAST mode, we send a system prompt WITHOUT it, explicitly telling it not to think.
+    // If we want THINKING mode, we explicitly inject the <|think|> token.
+    const systemContent = thinking 
+      ? "<|think|>\nYou are a thoughtful assistant. Reason through the problem carefully."
+      : "You are a helpful, direct assistant. Answer immediately without reasoning or thinking tags.";
 
     const userMsg   = { role:"user", content:text, thinking:"" };
     messages.push(userMsg);
@@ -395,9 +414,9 @@
     messageEl.value = "";
     setStatus((thinking?"🧠 Thinking...":"⚡ Fast mode..."));
 
-    // Prepare payload with system prompt included
+    // Prepend our override system prompt to the message history
     const payload = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: systemContent },
       ...messages.map(m=>({
         role: m.role==="bot" ? "assistant" : m.role,
         content: m.content
@@ -411,9 +430,7 @@
         body: JSON.stringify({
           model,
           stream: false,
-          // Reversing temperature logic based on your experience with this model:
-          // Lower temperature for strict reasoning, higher for bypassing it.
-          temperature: thinking ? 0.2 : 0.7, 
+          temperature: 0.7, // Temperature doesn't control thinking for Gemma4, the system prompt does
           messages: payload
         })
       });
