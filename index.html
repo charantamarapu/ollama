@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ollama Chat</title>
+  <!-- inline favicon: eliminates 404 -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
   <style>
     :root{
       --bg:#0f172a;
@@ -42,9 +44,7 @@
       border-radius:14px;
       padding:16px;
     }
-    h1,h2{
-      margin-top:0;
-    }
+    h1,h2{margin-top:0}
     label{
       display:block;
       margin:12px 0 6px;
@@ -73,9 +73,7 @@
       border:none;
       margin-top:10px;
     }
-    button.secondary{
-      background:#475569;
-    }
+    button.secondary{background:#475569}
     .chat-box{
       height:420px;
       overflow-y:auto;
@@ -114,9 +112,11 @@
 </head>
 <body>
   <div class="container">
-    <h1>Ollama Chat</h1>
+    <h1>🤖 Ollama Chat</h1>
 
     <div class="layout">
+
+      <!-- Settings Panel -->
       <div class="card">
         <h2>Settings</h2>
 
@@ -126,32 +126,42 @@
         <label for="model">Model</label>
         <input id="model" type="text" placeholder="gemma4:e2b" />
 
-        <button id="saveSettings">Save Settings</button>
-        <button id="checkHealth" class="secondary">Check Connection</button>
+        <button id="saveSettings">💾 Save Settings</button>
+        <button id="checkHealth" class="secondary">🔌 Check Connection</button>
 
         <div id="status" class="status">Enter your ngrok URL and model, then save.</div>
       </div>
 
+      <!-- Chat Panel -->
       <div class="card">
         <h2>Chat</h2>
 
         <div id="chatBox" class="chat-box"></div>
 
-        <label for="message">Message</label>
+        <label for="message">Message (Enter to send, Shift+Enter for newline)</label>
         <textarea id="message" placeholder="Type your message..."></textarea>
 
-        <button id="sendBtn">Send</button>
-        <button id="clearBtn" class="secondary">Clear Chat</button>
+        <button id="sendBtn">➤ Send</button>
+        <button id="clearBtn" class="secondary">🗑 Clear Chat</button>
       </div>
+
     </div>
   </div>
 
   <script>
     const ngrokUrlEl = document.getElementById("ngrokUrl");
-    const modelEl = document.getElementById("model");
-    const statusEl = document.getElementById("status");
-    const chatBox = document.getElementById("chatBox");
-    const messageEl = document.getElementById("message");
+    const modelEl    = document.getElementById("model");
+    const statusEl   = document.getElementById("status");
+    const chatBox    = document.getElementById("chatBox");
+    const messageEl  = document.getElementById("message");
+
+    // ── This header bypasses ngrok's browser interstitial page.
+    // ── Without it, ngrok returns its own HTML page which has no
+    // ── Access-Control-Allow-Origin header, causing the CORS error.
+    const NGROK_HEADERS = {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "1"
+    };
 
     function normalizeUrl(url) {
       return (url || "").trim().replace(/\/+$/, "");
@@ -165,18 +175,18 @@
     function saveSettings() {
       localStorage.setItem("ollama_ngrok_url", normalizeUrl(ngrokUrlEl.value));
       localStorage.setItem("ollama_model", modelEl.value.trim());
-      setStatus("Settings saved.", "ok");
+      setStatus("✅ Settings saved.", "ok");
     }
 
     function loadSettings() {
       ngrokUrlEl.value = localStorage.getItem("ollama_ngrok_url") || "";
-      modelEl.value = localStorage.getItem("ollama_model") || "gemma4:e2b";
+      modelEl.value    = localStorage.getItem("ollama_model") || "gemma4:e2b";
 
-      const savedMessages = JSON.parse(localStorage.getItem("ollama_messages") || "[]");
-      savedMessages.forEach(msg => appendMessage(msg.role, msg.content));
-
-      if (savedMessages.length === 0) {
-        appendMessage("bot", "Ready. Save your ngrok URL and model, then start chatting.");
+      const saved = JSON.parse(localStorage.getItem("ollama_messages") || "[]");
+      if (saved.length > 0) {
+        saved.forEach(m => appendMessage(m.role, m.content));
+      } else {
+        appendMessage("bot", "Ready. Save your ngrok URL and model above, then start chatting.");
       }
     }
 
@@ -198,17 +208,16 @@
 
     async function checkHealth() {
       const baseUrl = normalizeUrl(ngrokUrlEl.value);
-      if (!baseUrl) {
-        setStatus("Please enter ngrok URL.", "err");
-        return;
-      }
+      if (!baseUrl) { setStatus("Please enter ngrok URL.", "err"); return; }
 
       setStatus("Checking connection...");
       try {
-        const res = await fetch(baseUrl + "/health");
+        const res  = await fetch(baseUrl + "/health", { headers: NGROK_HEADERS });
         const data = await res.json();
         setStatus(
-          "Status: " + data.status + "\nOllama connected: " + data.ollama_connected,
+          "Status: " + data.status +
+          "\nOllama connected: " + data.ollama_connected +
+          (data.models ? "\nModels: " + data.models.map(m => m.name).join(", ") : ""),
           data.ollama_connected ? "ok" : "err"
         );
       } catch (err) {
@@ -218,70 +227,55 @@
 
     async function sendMessage() {
       const baseUrl = normalizeUrl(ngrokUrlEl.value);
-      const model = modelEl.value.trim() || "gemma4:e2b";
-      const text = messageEl.value.trim();
+      const model   = modelEl.value.trim() || "gemma4:e2b";
+      const text    = messageEl.value.trim();
 
-      if (!baseUrl) {
-        setStatus("Please enter ngrok URL.", "err");
-        return;
-      }
+      if (!baseUrl) { setStatus("Please enter ngrok URL.", "err"); return; }
+      if (!text)    { setStatus("Please enter a message.", "err"); return; }
 
-      if (!text) {
-        setStatus("Please enter a message.", "err");
-        return;
-      }
-
-      const messages = getSavedMessages();
-      const userMsg = { role: "user", content: text };
+      const messages  = getSavedMessages();
+      const userMsg   = { role: "user", content: text };
       messages.push(userMsg);
       saveMessages(messages);
       appendMessage("user", text);
       messageEl.value = "";
-      setStatus("Sending message...");
+      setStatus("⏳ Waiting for response...");
+
+      // Map internal "bot" role to "assistant" for Ollama API
+      const payload = messages.map(m => ({
+        role: m.role === "bot" ? "assistant" : m.role,
+        content: m.content
+      }));
 
       try {
         const res = await fetch(baseUrl + "/v1/chat", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: model,
-            stream: false,
-            temperature: 0.7,
-            messages: messages.map(m => ({
-              role: m.role === "bot" ? "assistant" : m.role,
-              content: m.content
-            }))
-          })
+          headers: NGROK_HEADERS,
+          body: JSON.stringify({ model, stream: false, temperature: 0.7, messages: payload })
         });
 
         const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "Request failed");
-        }
+        if (!res.ok) throw new Error(data.error || "Request failed");
 
         const reply =
           (data.message && data.message.content) ||
           data.response ||
           "No response returned.";
 
-        const botMsg = { role: "bot", content: reply };
         const updated = getSavedMessages();
-        updated.push(botMsg);
+        updated.push({ role: "bot", content: reply });
         saveMessages(updated);
         appendMessage("bot", reply);
-        setStatus("Done.", "ok");
+        setStatus("✅ Done.", "ok");
       } catch (err) {
-        setStatus("Chat error: " + err.message, "err");
+        setStatus("❌ Chat error: " + err.message, "err");
       }
     }
 
     function clearChat() {
       localStorage.removeItem("ollama_messages");
       chatBox.innerHTML = "";
-      appendMessage("bot", "Chat cleared.");
+      appendMessage("bot", "Chat cleared. Start a new conversation.");
       setStatus("Chat cleared.", "ok");
     }
 
@@ -289,12 +283,8 @@
     document.getElementById("checkHealth").addEventListener("click", checkHealth);
     document.getElementById("sendBtn").addEventListener("click", sendMessage);
     document.getElementById("clearBtn").addEventListener("click", clearChat);
-
-    messageEl.addEventListener("keydown", function(e) {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
+    messageEl.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
 
     loadSettings();
