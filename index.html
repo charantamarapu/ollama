@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ollama Chat</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#111827;
+      --soft:#1f2937;
+      --border:#334155;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --primary:#2563eb;
+      --green:#16a34a;
+      --red:#dc2626;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .container{
+      max-width:1000px;
+      margin:30px auto;
+      padding:16px;
+    }
+    .layout{
+      display:grid;
+      grid-template-columns:320px 1fr;
+      gap:16px;
+    }
+    @media (max-width: 800px){
+      .layout{grid-template-columns:1fr}
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:16px;
+    }
+    h1,h2{
+      margin-top:0;
+    }
+    label{
+      display:block;
+      margin:12px 0 6px;
+      font-size:14px;
+      color:var(--muted);
+    }
+    input, textarea, button{
+      width:100%;
+      border-radius:10px;
+      border:1px solid var(--border);
+      padding:12px;
+      font-size:15px;
+    }
+    input, textarea{
+      background:var(--soft);
+      color:var(--text);
+    }
+    textarea{
+      resize:vertical;
+      min-height:90px;
+    }
+    button{
+      background:var(--primary);
+      color:white;
+      cursor:pointer;
+      border:none;
+      margin-top:10px;
+    }
+    button.secondary{
+      background:#475569;
+    }
+    .chat-box{
+      height:420px;
+      overflow-y:auto;
+      background:#0b1220;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+      margin-bottom:12px;
+    }
+    .msg{
+      padding:10px 12px;
+      border-radius:10px;
+      margin-bottom:10px;
+      line-height:1.5;
+      white-space:pre-wrap;
+    }
+    .user{
+      background:#1d4ed8;
+      color:white;
+      margin-left:40px;
+    }
+    .bot{
+      background:#1e293b;
+      color:#e2e8f0;
+      margin-right:40px;
+    }
+    .status{
+      margin-top:10px;
+      font-size:14px;
+      color:var(--muted);
+      white-space:pre-wrap;
+    }
+    .ok{color:#86efac}
+    .err{color:#fca5a5}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ollama Chat</h1>
+
+    <div class="layout">
+      <div class="card">
+        <h2>Settings</h2>
+
+        <label for="ngrokUrl">Ngrok URL</label>
+        <input id="ngrokUrl" type="text" placeholder="https://abcd-1234.ngrok-free.app" />
+
+        <label for="model">Model</label>
+        <input id="model" type="text" placeholder="gemma4:e2b" />
+
+        <button id="saveSettings">Save Settings</button>
+        <button id="checkHealth" class="secondary">Check Connection</button>
+
+        <div id="status" class="status">Enter your ngrok URL and model, then save.</div>
+      </div>
+
+      <div class="card">
+        <h2>Chat</h2>
+
+        <div id="chatBox" class="chat-box"></div>
+
+        <label for="message">Message</label>
+        <textarea id="message" placeholder="Type your message..."></textarea>
+
+        <button id="sendBtn">Send</button>
+        <button id="clearBtn" class="secondary">Clear Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ngrokUrlEl = document.getElementById("ngrokUrl");
+    const modelEl = document.getElementById("model");
+    const statusEl = document.getElementById("status");
+    const chatBox = document.getElementById("chatBox");
+    const messageEl = document.getElementById("message");
+
+    function normalizeUrl(url) {
+      return (url || "").trim().replace(/\/+$/, "");
+    }
+
+    function setStatus(text, type = "") {
+      statusEl.className = "status" + (type ? " " + type : "");
+      statusEl.textContent = text;
+    }
+
+    function saveSettings() {
+      localStorage.setItem("ollama_ngrok_url", normalizeUrl(ngrokUrlEl.value));
+      localStorage.setItem("ollama_model", modelEl.value.trim());
+      setStatus("Settings saved.", "ok");
+    }
+
+    function loadSettings() {
+      ngrokUrlEl.value = localStorage.getItem("ollama_ngrok_url") || "";
+      modelEl.value = localStorage.getItem("ollama_model") || "gemma4:e2b";
+
+      const savedMessages = JSON.parse(localStorage.getItem("ollama_messages") || "[]");
+      savedMessages.forEach(msg => appendMessage(msg.role, msg.content));
+
+      if (savedMessages.length === 0) {
+        appendMessage("bot", "Ready. Save your ngrok URL and model, then start chatting.");
+      }
+    }
+
+    function getSavedMessages() {
+      return JSON.parse(localStorage.getItem("ollama_messages") || "[]");
+    }
+
+    function saveMessages(messages) {
+      localStorage.setItem("ollama_messages", JSON.stringify(messages));
+    }
+
+    function appendMessage(role, content) {
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.textContent = content;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function checkHealth() {
+      const baseUrl = normalizeUrl(ngrokUrlEl.value);
+      if (!baseUrl) {
+        setStatus("Please enter ngrok URL.", "err");
+        return;
+      }
+
+      setStatus("Checking connection...");
+      try {
+        const res = await fetch(baseUrl + "/health");
+        const data = await res.json();
+        setStatus(
+          "Status: " + data.status + "\nOllama connected: " + data.ollama_connected,
+          data.ollama_connected ? "ok" : "err"
+        );
+      } catch (err) {
+        setStatus("Connection failed: " + err.message, "err");
+      }
+    }
+
+    async function sendMessage() {
+      const baseUrl = normalizeUrl(ngrokUrlEl.value);
+      const model = modelEl.value.trim() || "gemma4:e2b";
+      const text = messageEl.value.trim();
+
+      if (!baseUrl) {
+        setStatus("Please enter ngrok URL.", "err");
+        return;
+      }
+
+      if (!text) {
+        setStatus("Please enter a message.", "err");
+        return;
+      }
+
+      const messages = getSavedMessages();
+      const userMsg = { role: "user", content: text };
+      messages.push(userMsg);
+      saveMessages(messages);
+      appendMessage("user", text);
+      messageEl.value = "";
+      setStatus("Sending message...");
+
+      try {
+        const res = await fetch(baseUrl + "/v1/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: model,
+            stream: false,
+            temperature: 0.7,
+            messages: messages.map(m => ({
+              role: m.role === "bot" ? "assistant" : m.role,
+              content: m.content
+            }))
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Request failed");
+        }
+
+        const reply =
+          (data.message && data.message.content) ||
+          data.response ||
+          "No response returned.";
+
+        const botMsg = { role: "bot", content: reply };
+        const updated = getSavedMessages();
+        updated.push(botMsg);
+        saveMessages(updated);
+        appendMessage("bot", reply);
+        setStatus("Done.", "ok");
+      } catch (err) {
+        setStatus("Chat error: " + err.message, "err");
+      }
+    }
+
+    function clearChat() {
+      localStorage.removeItem("ollama_messages");
+      chatBox.innerHTML = "";
+      appendMessage("bot", "Chat cleared.");
+      setStatus("Chat cleared.", "ok");
+    }
+
+    document.getElementById("saveSettings").addEventListener("click", saveSettings);
+    document.getElementById("checkHealth").addEventListener("click", checkHealth);
+    document.getElementById("sendBtn").addEventListener("click", sendMessage);
+    document.getElementById("clearBtn").addEventListener("click", clearChat);
+
+    messageEl.addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    loadSettings();
+  </script>
+</body>
+</html>
