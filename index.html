@@ -2,294 +2,333 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Ollama Chat</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
   <style>
     :root{
-      --bg:#0f172a;
+      --bg:#0b1220;
       --card:#111827;
       --soft:#1f2937;
       --border:#334155;
       --text:#e5e7eb;
       --muted:#94a3b8;
       --primary:#2563eb;
+      --user-msg:#1d4ed8;
+      --bot-msg:#1e293b;
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Arial,Helvetica,sans-serif;
-      background:var(--bg);
-      color:var(--text);
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
     }
-    .container{
-      max-width:1020px;
-      margin:28px auto;
-      padding:16px;
+    
+    /* ── COMPACT APP LAYOUT ── */
+    .app-container {
+      width: 100%;
+      max-width: 768px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      position: relative;
+      overflow: hidden;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
     }
-    .top-bar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:16px;
-      flex-wrap:wrap;
-      gap:10px;
+    
+    /* ── HEADER & TOGGLE ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
     }
-    h1{margin:0}
-    .layout{
-      display:grid;
-      grid-template-columns:310px 1fr;
-      gap:16px;
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    @media(max-width:800px){.layout{grid-template-columns:1fr}}
-    .card{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:16px;
+    .hamburger {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
     }
-    h2{margin-top:0}
-    label{
-      display:block;
-      margin:12px 0 6px;
-      font-size:13px;
-      color:var(--muted);
+    .title {
+      font-weight: 600;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    input, textarea{
-      width:100%;
-      border-radius:10px;
-      border:1px solid var(--border);
-      padding:11px 13px;
-      font-size:15px;
-      background:var(--soft);
-      color:var(--text);
+    .mode-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
     }
-    textarea{
-      resize:vertical;
-      min-height:90px;
+    .mode-toggle-wrap span { font-size: 13px; font-weight: bold; transition: color 0.3s; }
+    .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle input { display: none; }
+    .slider {
+      position: absolute; inset: 0; border-radius: 20px;
+      background: #22c55e; cursor: pointer; transition: background .3s;
     }
-    button{
-      width:100%;
-      border-radius:10px;
-      border:none;
-      padding:11px 13px;
-      font-size:15px;
-      background:var(--primary);
-      color:white;
-      cursor:pointer;
-      margin-top:10px;
+    .slider::before {
+      content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+      border-radius: 50%; background: white; transition: transform .3s;
     }
-    button.secondary{background:#475569}
+    .toggle input:checked + .slider { background: #6366f1; }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
 
-    /* ── MODE TOGGLE ─────────────────────────────── */
-    .mode-wrap{
-      margin-top:14px;
-      background:#0b1220;
-      padding:12px;
-      border-radius:10px;
-      border:1px solid var(--border);
+    /* ── CHAT AREA ── */
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--bg);
     }
-    .mode-label{
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:1px;
-      color:var(--muted);
-      margin-bottom:12px;
-      text-align:center;
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 15px;
     }
-    .toggle-row{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:16px;
+    .user { background: var(--user-msg); align-self: flex-end; border-bottom-right-radius: 4px; }
+    .bot { background: var(--bot-msg); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+    
+    .think-block {
+      background: #0f1a14; border: 1px solid #1f4d2e; color: #6ee7b7;
+      border-radius: 8px; padding: 8px 10px; font-size: 12px;
+      margin-bottom: 8px; white-space: pre-wrap; word-break: break-word;
     }
-    .lbl-fast, .lbl-think{
-      font-size:14px;
-      font-weight:bold;
-      transition:color 0.3s;
+    .think-toggle {
+      font-size: 12px; color: #4ade80; cursor: pointer; background: none;
+      border: none; margin: 0 0 6px; padding: 0; text-align: left; display: block;
     }
-    .toggle{
-      position:relative;
-      width:56px;
-      height:28px;
-      flex-shrink:0;
-    }
-    .toggle input{display:none}
-    .slider{
-      position:absolute;
-      inset:0;
-      border-radius:20px;
-      background:#22c55e;
-      cursor:pointer;
-      transition:background .3s;
-    }
-    .slider::before{
-      content:"";
-      position:absolute;
-      top:4px;left:4px;
-      width:20px;height:20px;
-      border-radius:50%;
-      background:white;
-      transition:transform .3s;
-    }
-    .toggle input:checked + .slider{background:#6366f1}
-    .toggle input:checked + .slider::before{transform:translateX(28px)}
-    /* ─────────────────────────────────────────────── */
 
-    .chat-box{
-      height:420px;
-      overflow-y:auto;
-      background:#0b1220;
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:12px;
-      margin-bottom:12px;
+    /* ── INPUT AREA ── */
+    footer {
+      padding: 12px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
     }
-    .msg{
-      padding:10px 13px;
-      border-radius:10px;
-      margin-bottom:10px;
-      line-height:1.55;
-      white-space:pre-wrap;
-      word-break:break-word;
+    textarea {
+      flex: 1;
+      background: var(--soft);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 10px 16px;
+      font-size: 15px;
+      font-family: inherit;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      outline: none;
     }
-    .user{
-      background:#1d4ed8;
-      color:white;
-      margin-left:30px;
+    .send-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
     }
-    .bot{
-      background:#1e293b;
-      color:#e2e8f0;
-      margin-right:30px;
+    .send-btn:active { opacity: 0.7; }
+
+    /* ── SETTINGS DRAWER (HAMBURGER) ── */
+    .overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s;
     }
-    .think-block{
-      background:#0f1a14;
-      border:1px solid #1f4d2e;
-      color:#6ee7b7;
-      border-radius:8px;
-      padding:8px 10px;
-      font-size:12px;
-      margin-bottom:8px;
-      white-space:pre-wrap;
-      word-break:break-word;
+    .overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .drawer {
+      position: absolute; top: 0; left: 0; bottom: 0; width: 280px;
+      background: var(--card); z-index: 50; transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
     }
-    .think-toggle{
-      font-size:12px;
-      color:#4ade80;
-      cursor:pointer;
-      background:none;
-      border:none;
-      width:auto;
-      margin:0 0 6px;
-      padding:0;
-      text-align:left;
+    .drawer.active { transform: translateX(0); }
+    .drawer-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px; border-bottom: 1px solid var(--border);
     }
-    .status{
-      margin-top:10px;
-      font-size:13px;
-      color:var(--muted);
-      white-space:pre-wrap;
+    .drawer-header h2 { margin: 0; font-size: 18px; }
+    .close-btn { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+    
+    .drawer-content { padding: 16px; overflow-y: auto; flex: 1; }
+    .drawer-content label { display: block; margin: 12px 0 6px; font-size: 13px; color: var(--muted); }
+    .drawer-content input {
+      width: 100%; border-radius: 8px; border: 1px solid var(--border);
+      padding: 10px; font-size: 14px; background: var(--soft); color: var(--text);
     }
-    .ok{color:#86efac}
-    .err{color:#fca5a5}
+    .drawer-content button {
+      width: 100%; border-radius: 8px; border: none; padding: 10px;
+      font-size: 14px; font-weight: 500; color: white; cursor: pointer; margin-top: 12px;
+    }
+    .btn-save { background: var(--primary); }
+    .btn-test { background: #475569; }
+    .btn-clear { background: transparent; border: 1px solid #7f1d1d !important; color: #fca5a5 !important; margin-top: 24px !important; }
+    
+    .status { margin-top: 12px; font-size: 12px; color: var(--muted); white-space: pre-wrap; line-height: 1.4; }
+    .ok { color: #86efac; }
+    .err { color: #fca5a5; }
+    
+    /* Toast inside chat */
+    .system-msg { align-self: center; font-size: 12px; color: var(--muted); margin: 8px 0; }
   </style>
 </head>
 <body>
-<div class="container">
 
-  <div class="top-bar">
-    <h1>🤖 Ollama Chat</h1>
-  </div>
-
-  <div class="layout">
-
-    <!-- SETTINGS -->
-    <div class="card">
-      <h2>Settings</h2>
-
+<div class="app-container">
+  
+  <!-- Overlay & Settings Drawer -->
+  <div id="overlay" class="overlay"></div>
+  <div id="drawer" class="drawer">
+    <div class="drawer-header">
+      <h2>⚙️ Settings</h2>
+      <button id="closeDrawer" class="close-btn">✕</button>
+    </div>
+    <div class="drawer-content">
       <label for="ngrokUrl">Ngrok URL</label>
-      <input id="ngrokUrl" type="text" placeholder="https://abcd-1234.ngrok-free.app" />
+      <input id="ngrokUrl" type="text" placeholder="https://abcd.ngrok-free.app" />
 
       <label for="model">Model</label>
       <input id="model" type="text" placeholder="gemma4:e4b" />
 
-      <!-- MODE TOGGLE -->
-      <div class="mode-wrap">
-        <div class="mode-label">Response Mode</div>
-        <div class="toggle-row">
-          <span class="lbl-fast" id="lblFast">⚡ Fast</span>
-          <label class="toggle">
-            <input type="checkbox" id="modeToggle" />
-            <span class="slider"></span>
-          </label>
-          <span class="lbl-think" id="lblThink">🧠 Thinking</span>
-        </div>
-      </div>
+      <button id="saveSettings" class="btn-save">💾 Save Settings</button>
+      <button id="checkHealth" class="btn-test">🔌 Test Connection</button>
+      
+      <div id="status" class="status">Configure your gateway to start chatting.</div>
 
-      <button id="saveSettings">💾 Save Settings</button>
-      <button id="checkHealth" class="secondary">🔌 Check Connection</button>
-
-      <div id="status" class="status">Enter ngrok URL and model, then save.</div>
+      <button id="clearBtn" class="btn-clear">🗑 Clear Chat History</button>
     </div>
-
-    <!-- CHAT -->
-    <div class="card">
-      <h2 id="chatTitle">Chat</h2>
-
-      <div id="chatBox" class="chat-box"></div>
-
-      <label for="message">Message</label>
-      <textarea id="message" placeholder="Type your message..."></textarea>
-
-      <button id="sendBtn">➤ Send</button>
-      <button id="clearBtn" class="secondary">🗑 Clear Chat</button>
-    </div>
-
   </div>
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <button id="openDrawer" class="hamburger">☰</button>
+      <div class="title">🤖 Ollama</div>
+    </div>
+    <div class="mode-toggle-wrap">
+      <span id="lblFast" style="color:#34d399;">⚡</span>
+      <label class="toggle">
+        <input type="checkbox" id="modeToggle" />
+        <span class="slider"></span>
+      </label>
+      <span id="lblThink" style="color:#475569;">🧠</span>
+    </div>
+  </header>
+
+  <!-- Chat Area -->
+  <main id="chatBox" class="chat-box"></main>
+
+  <!-- Input Area -->
+  <footer>
+    <textarea id="message" rows="1" placeholder="Type a message..."></textarea>
+    <button id="sendBtn" class="send-btn">➤</button>
+  </footer>
+
 </div>
 
 <script>
+  // DOM Elements
   const ngrokUrlEl  = document.getElementById("ngrokUrl");
   const modelEl     = document.getElementById("model");
   const modeToggle  = document.getElementById("modeToggle");
   const lblFast     = document.getElementById("lblFast");
   const lblThink    = document.getElementById("lblThink");
-  const chatTitleEl = document.getElementById("chatTitle");
   const statusEl    = document.getElementById("status");
   const chatBox     = document.getElementById("chatBox");
   const messageEl   = document.getElementById("message");
+  const drawer      = document.getElementById("drawer");
+  const overlay     = document.getElementById("overlay");
 
   const NGROK_HEADERS = {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "1"
   };
 
+  // ── Drawer Logic ──
+  document.getElementById("openDrawer").addEventListener("click", () => {
+    drawer.classList.add("active");
+    overlay.classList.add("active");
+  });
+  const closeDrawer = () => {
+    drawer.classList.remove("active");
+    overlay.classList.remove("active");
+  };
+  document.getElementById("closeDrawer").addEventListener("click", closeDrawer);
+  overlay.addEventListener("click", closeDrawer);
+
+  // ── Textarea Auto-resize ──
+  messageEl.addEventListener("input", function() {
+    this.style.height = "auto";
+    this.style.height = (this.scrollHeight < 120 ? this.scrollHeight : 120) + "px";
+  });
+
+  // ── Helpers ──
   function normalizeUrl(u){ return (u||"").trim().replace(/\/+$/,""); }
-  function setStatus(t,type=""){
-    statusEl.className="status"+(type?" "+type:"");
-    statusEl.textContent=t;
+  function setStatus(t, type=""){
+    statusEl.className = "status" + (type ? " " + type : "");
+    statusEl.textContent = t;
+  }
+  function appendSystemMsg(text) {
+    const div = document.createElement("div");
+    div.className = "system-msg";
+    div.textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
   }
 
-  // ── Mode logic
+  // ── Mode Logic ──
   function isThinking(){ return modeToggle.checked; }
-
   function updateModeUI(){
     const thinking = isThinking();
     lblFast.style.color  = thinking ? "#475569" : "#34d399";
     lblThink.style.color = thinking ? "#818cf8" : "#475569";
-    
-    chatTitleEl.innerHTML = thinking
-      ? "Chat <span style='font-size:13px;color:#818cf8;font-weight:normal'>[🧠 Thinking mode]</span>"
-      : "Chat <span style='font-size:13px;color:#34d399;font-weight:normal'>[⚡ Fast mode]</span>";
   }
-
   modeToggle.addEventListener("change", ()=>{
     updateModeUI();
     localStorage.setItem("ollama_thinking", isThinking() ? "1" : "0");
   });
 
-  // ── Persist settings
+  // ── Settings Persistence ──
   function saveSettings(){
     localStorage.setItem("ollama_ngrok_url", normalizeUrl(ngrokUrlEl.value));
     localStorage.setItem("ollama_model", modelEl.value.trim());
@@ -307,58 +346,61 @@
     if(saved.length){
       saved.forEach(m => appendMessage(m.role, m.content, m.thinking || ""));
     } else {
-      appendMessage("bot","Ready. Save settings and start chatting.","");
+      appendSystemMsg("Ready. Configure settings to start chatting.");
     }
   }
 
   function getSavedMessages(){ return JSON.parse(localStorage.getItem("ollama_messages")||"[]"); }
   function saveMessages(m){ localStorage.setItem("ollama_messages", JSON.stringify(m)); }
 
-  // ── Parse out Gemma 4's specific reasoning blocks
+  // ── Parser for Gemma 4 Reasoning ──
   function parseReply(raw){
-    // Gemma 4 outputs thought tags like <|channel>thought\n ... <channel|>
-    // But it may also use <think> depending on the Ollama wrapper.
     let thinking = "";
     let answer = raw;
     
-    // Check for Ollama standard <think> wrapper
     const thinkMatch1 = raw.match(/<think>([\s\S]*?)<\/think>/i);
     if(thinkMatch1){
       thinking = thinkMatch1[1].trim();
       answer = raw.replace(/<think>[\s\S]*?<\/think>/i,"").trim();
-    } 
-    // Check for Gemma 4 native <|channel>thought\n ... <channel|> wrapper
-    else {
+    } else {
       const thinkMatch2 = raw.match(/<\|channel>thought\n([\s\S]*?)<channel\|>/i);
       if(thinkMatch2){
         thinking = thinkMatch2[1].trim();
         answer = raw.replace(/<\|channel>thought\n[\s\S]*?<channel\|>/i,"").trim();
       }
     }
-    
     return { answer, thinking };
   }
 
-  // ── Render message
+  // ── Render Chat Message ──
   function appendMessage(role, content, thinking=""){
     const wrap = document.createElement("div");
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.width = "100%";
 
-    // Only render the thinking block if there's actual text inside it
-    if(thinking && thinking.trim().length > 0){
+    if(thinking && thinking.trim().length > 0 && role === "bot"){
       const btn = document.createElement("button");
       btn.className = "think-toggle";
       btn.textContent = "▶ Show reasoning";
+      
       const block = document.createElement("div");
       block.className = "think-block";
       block.style.display = "none";
       block.textContent = thinking;
+      
       btn.addEventListener("click",()=>{
         const open = block.style.display !== "none";
         block.style.display = open ? "none" : "block";
         btn.textContent = open ? "▶ Show reasoning" : "▼ Hide reasoning";
+        chatBox.scrollTop = chatBox.scrollHeight;
       });
-      wrap.appendChild(btn);
-      wrap.appendChild(block);
+      
+      const alignWrap = document.createElement("div");
+      alignWrap.style.alignSelf = "flex-start";
+      alignWrap.appendChild(btn);
+      alignWrap.appendChild(block);
+      wrap.appendChild(alignWrap);
     }
 
     const div = document.createElement("div");
@@ -370,7 +412,7 @@
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
-  // ── Health check
+  // ── Network Calls ──
   async function checkHealth(){
     const base = normalizeUrl(ngrokUrlEl.value);
     if(!base){ setStatus("Please enter ngrok URL.","err"); return; }
@@ -388,21 +430,18 @@
     }
   }
 
-  // ── Send message
   async function sendMessage(){
     const base      = normalizeUrl(ngrokUrlEl.value);
     const model     = modelEl.value.trim() || "gemma4:e4b";
     const thinking  = isThinking();
     const text      = messageEl.value.trim();
 
-    if(!base){ setStatus("Please enter ngrok URL.","err"); return; }
-    if(!text){ setStatus("Please enter a message.","err"); return; }
+    if(!base){ drawer.classList.add("active"); overlay.classList.add("active"); setStatus("Enter Ngrok URL first.","err"); return; }
+    if(!text) return;
 
     const messages  = getSavedMessages();
     
-    // Gemma 4 specifically uses <|think|> in the system prompt to trigger thinking.
-    // If we want FAST mode, we send a system prompt WITHOUT it, explicitly telling it not to think.
-    // If we want THINKING mode, we explicitly inject the <|think|> token.
+    // Gemma 4 system prompt injection
     const systemContent = thinking 
       ? "<|think|>\nYou are a thoughtful assistant. Reason through the problem carefully."
       : "You are a helpful, direct assistant. Answer immediately without reasoning or thinking tags.";
@@ -411,10 +450,12 @@
     messages.push(userMsg);
     saveMessages(messages);
     appendMessage("user", text, "");
+    
     messageEl.value = "";
-    setStatus((thinking?"🧠 Thinking...":"⚡ Fast mode..."));
+    messageEl.style.height = "auto"; // reset height
+    
+    appendSystemMsg(thinking ? "🧠 Thinking..." : "⚡ Generating...");
 
-    // Prepend our override system prompt to the message history
     const payload = [
       { role: "system", content: systemContent },
       ...messages.map(m=>({
@@ -430,12 +471,17 @@
         body: JSON.stringify({
           model,
           stream: false,
-          temperature: 0.7, // Temperature doesn't control thinking for Gemma4, the system prompt does
+          temperature: 0.7,
           messages: payload
         })
       });
 
       const data = await res.json();
+      
+      // Remove the "Thinking..." / "Generating..." toast
+      const toasts = document.querySelectorAll(".system-msg");
+      if(toasts.length > 0) toasts[toasts.length - 1].remove();
+
       if(!res.ok) throw new Error(data.error||"Request failed");
 
       const raw   = (data.message && data.message.content) || data.response || "";
@@ -446,27 +492,34 @@
       updated.push(botMsg);
       saveMessages(updated);
       appendMessage("bot", answer, thinkText);
-      setStatus("✅ Done.","ok");
+      
     } catch(err){
-      setStatus("❌ Chat error: "+err.message,"err");
+      const toasts = document.querySelectorAll(".system-msg");
+      if(toasts.length > 0) toasts[toasts.length - 1].remove();
+      appendSystemMsg("❌ Error: " + err.message);
     }
   }
 
-  function clearChat(){
-    localStorage.removeItem("ollama_messages");
-    chatBox.innerHTML="";
-    appendMessage("bot","Chat cleared.","");
-    setStatus("Chat cleared.","ok");
-  }
-
+  // ── Event Listeners ──
   document.getElementById("saveSettings").addEventListener("click", saveSettings);
   document.getElementById("checkHealth").addEventListener("click", checkHealth);
   document.getElementById("sendBtn").addEventListener("click", sendMessage);
-  document.getElementById("clearBtn").addEventListener("click", clearChat);
-  messageEl.addEventListener("keydown", e=>{
-    if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+  
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    localStorage.removeItem("ollama_messages");
+    chatBox.innerHTML="";
+    appendSystemMsg("Chat history cleared.");
+    closeDrawer();
   });
 
+  messageEl.addEventListener("keydown", e => {
+    if(e.key==="Enter" && !e.shiftKey){ 
+      e.preventDefault(); 
+      sendMessage(); 
+    }
+  });
+
+  // Init
   loadSettings();
 </script>
 </body>
