@@ -80,29 +80,34 @@
       margin-top:10px;
     }
     button.secondary{background:#475569}
-    button.danger{background:#7f1d1d;color:#fca5a5}
 
     /* ── MODE TOGGLE ─────────────────────────────── */
     .mode-wrap{
       margin-top:14px;
+      background:#0b1220;
+      padding:12px;
+      border-radius:10px;
+      border:1px solid var(--border);
     }
     .mode-label{
-      font-size:13px;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:1px;
       color:var(--muted);
-      margin-bottom:8px;
+      margin-bottom:12px;
+      text-align:center;
     }
     .toggle-row{
       display:flex;
       align-items:center;
-      gap:12px;
+      justify-content:center;
+      gap:16px;
     }
-    .mode-name{
-      font-weight:700;
-      font-size:15px;
-      min-width:100px;
+    .lbl-fast, .lbl-think{
+      font-size:14px;
+      font-weight:bold;
+      transition:color 0.3s;
     }
-    .mode-name.fast{color:#34d399}
-    .mode-name.thinking{color:#818cf8}
     .toggle{
       position:relative;
       width:56px;
@@ -129,12 +134,6 @@
     }
     .toggle input:checked + .slider{background:#6366f1}
     .toggle input:checked + .slider::before{transform:translateX(28px)}
-    .mode-hint{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:8px;
-      line-height:1.6;
-    }
     /* ─────────────────────────────────────────────── */
 
     .chat-box{
@@ -163,11 +162,6 @@
       background:#1e293b;
       color:#e2e8f0;
       margin-right:30px;
-    }
-    .msg-meta{
-      font-size:11px;
-      color:#64748b;
-      margin-bottom:4px;
     }
     .think-block{
       background:#0f1a14;
@@ -220,19 +214,16 @@
       <label for="model">Model</label>
       <input id="model" type="text" placeholder="gemma4:e4b" />
 
-      <!-- MODE TOGGLE -->
+      <!-- IMPROVED MODE TOGGLE -->
       <div class="mode-wrap">
-        <div class="mode-label">Mode</div>
+        <div class="mode-label">Response Mode</div>
         <div class="toggle-row">
-          <span class="mode-name fast" id="modeName">Fast</span>
+          <span class="lbl-fast" id="lblFast">⚡ Fast</span>
           <label class="toggle">
             <input type="checkbox" id="modeToggle" />
             <span class="slider"></span>
           </label>
-          <span style="font-size:13px;color:#818cf8">Thinking</span>
-        </div>
-        <div class="mode-hint" id="modeHint">
-          ⚡ Fast — sends <code>think:false</code> to Ollama. Skips the internal reasoning chain. Faster, ideal for simple queries.
+          <span class="lbl-think" id="lblThink">🧠 Thinking</span>
         </div>
       </div>
 
@@ -244,11 +235,11 @@
 
     <!-- CHAT -->
     <div class="card">
-      <h2 id="chatTitle">Chat <span style="font-size:13px;color:#34d399;font-weight:normal">[Fast mode]</span></h2>
+      <h2 id="chatTitle">Chat</h2>
 
       <div id="chatBox" class="chat-box"></div>
 
-      <label for="message">Message (Enter to send, Shift+Enter for newline)</label>
+      <label for="message">Message</label>
       <textarea id="message" placeholder="Type your message..."></textarea>
 
       <button id="sendBtn">➤ Send</button>
@@ -262,8 +253,8 @@
   const ngrokUrlEl  = document.getElementById("ngrokUrl");
   const modelEl     = document.getElementById("model");
   const modeToggle  = document.getElementById("modeToggle");
-  const modeNameEl  = document.getElementById("modeName");
-  const modeHintEl  = document.getElementById("modeHint");
+  const lblFast     = document.getElementById("lblFast");
+  const lblThink    = document.getElementById("lblThink");
   const chatTitleEl = document.getElementById("chatTitle");
   const statusEl    = document.getElementById("status");
   const chatBox     = document.getElementById("chatBox");
@@ -280,19 +271,18 @@
     statusEl.textContent=t;
   }
 
-  // ── Mode helpers
+  // ── Mode logic
   function isThinking(){ return modeToggle.checked; }
 
   function updateModeUI(){
     const thinking = isThinking();
-    modeNameEl.textContent  = thinking ? "Thinking" : "Fast";
-    modeNameEl.className    = "mode-name " + (thinking ? "thinking" : "fast");
-    modeHintEl.innerHTML    = thinking
-      ? "🧠 Thinking — sends <code>think:true</code> to Ollama. Gemma 4 activates its internal reasoning chain. Slower but deeper."
-      : "⚡ Fast — sends <code>think:false</code> to Ollama. Skips the internal reasoning chain. Faster, ideal for simple queries.";
-    chatTitleEl.innerHTML   = thinking
-      ? "Chat <span style='font-size:13px;color:#818cf8;font-weight:normal'>[Thinking mode]</span>"
-      : "Chat <span style='font-size:13px;color:#34d399;font-weight:normal'>[Fast mode]</span>";
+    // Update colors so the active side lights up, inactive dims
+    lblFast.style.color  = thinking ? "#475569" : "#34d399";
+    lblThink.style.color = thinking ? "#818cf8" : "#475569";
+    
+    chatTitleEl.innerHTML = thinking
+      ? "Chat <span style='font-size:13px;color:#818cf8;font-weight:normal'>[🧠 Thinking mode]</span>"
+      : "Chat <span style='font-size:13px;color:#34d399;font-weight:normal'>[⚡ Fast mode]</span>";
   }
 
   modeToggle.addEventListener("change", ()=>{
@@ -325,16 +315,15 @@
   function getSavedMessages(){ return JSON.parse(localStorage.getItem("ollama_messages")||"[]"); }
   function saveMessages(m){ localStorage.setItem("ollama_messages", JSON.stringify(m)); }
 
-  // ── Strip Gemma's <think> block from reply
+  // ── Parse out reasoning blocks
   function parseReply(raw){
-    // Gemma 4 wraps internal thoughts in <think>...</think>
     const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
     const thinking   = thinkMatch ? thinkMatch[1].trim() : "";
     const answer     = raw.replace(/<think>[\s\S]*?<\/think>/i,"").trim();
     return { answer, thinking };
   }
 
-  // ── Render a message bubble
+  // ── Render message
   function appendMessage(role, content, thinking=""){
     const wrap = document.createElement("div");
 
@@ -357,12 +346,7 @@
 
     const div = document.createElement("div");
     div.className = "msg " + (role === "user" ? "user" : "bot");
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    div.appendChild(meta);
-    const body = document.createElement("div");
-    body.textContent = content;
-    div.appendChild(body);
+    div.textContent = content;
     wrap.appendChild(div);
 
     chatBox.appendChild(wrap);
@@ -377,13 +361,9 @@
     try{
       const res  = await fetch(base+"/health",{headers:NGROK_HEADERS});
       const data = await res.json();
-      const modelList = Array.isArray(data.models)
-        ? data.models.map(m=>m.name).join(", ")
-        : "—";
       setStatus(
         "Status: "+data.status+
-        "\nOllama connected: "+data.ollama_connected+
-        "\nModels: "+modelList,
+        "\nOllama connected: "+data.ollama_connected,
         data.ollama_connected ? "ok" : "err"
       );
     } catch(err){
@@ -391,7 +371,7 @@
     }
   }
 
-  // ── Send chat
+  // ── Send message
   async function sendMessage(){
     const base      = normalizeUrl(ngrokUrlEl.value);
     const model     = modelEl.value.trim() || "gemma4:e4b";
@@ -402,6 +382,12 @@
     if(!text){ setStatus("Please enter a message.","err"); return; }
 
     const messages  = getSavedMessages();
+    
+    // Inject a system message to force direct answers if Fast Mode is on
+    const systemPrompt = thinking 
+      ? "Take a deep breath and reason step by step before answering."
+      : "Answer directly and concisely. Do NOT use <think> tags. Do NOT provide reasoning.";
+
     const userMsg   = { role:"user", content:text, thinking:"" };
     messages.push(userMsg);
     saveMessages(messages);
@@ -409,10 +395,14 @@
     messageEl.value = "";
     setStatus((thinking?"🧠 Thinking...":"⚡ Fast mode..."));
 
-    const payload = messages.map(m=>({
-      role: m.role==="bot" ? "assistant" : m.role,
-      content: m.content
-    }));
+    // Prepare payload with system prompt included
+    const payload = [
+      { role: "system", content: systemPrompt },
+      ...messages.map(m=>({
+        role: m.role==="bot" ? "assistant" : m.role,
+        content: m.content
+      }))
+    ];
 
     try{
       const res  = await fetch(base+"/v1/chat",{
@@ -420,10 +410,11 @@
         headers: NGROK_HEADERS,
         body: JSON.stringify({
           model,
-          stream:    false,
-          think:     thinking,        // ← Ollama's official think parameter
-          temperature: thinking ? 0.7 : 0.2,
-          messages:  payload
+          stream: false,
+          // Reversing temperature logic based on your experience with this model:
+          // Lower temperature for strict reasoning, higher for bypassing it.
+          temperature: thinking ? 0.2 : 0.7, 
+          messages: payload
         })
       });
 
@@ -438,7 +429,7 @@
       updated.push(botMsg);
       saveMessages(updated);
       appendMessage("bot", answer, thinkText);
-      setStatus("✅ Done ("+(thinking?"Thinking":"Fast")+" mode).","ok");
+      setStatus("✅ Done.","ok");
     } catch(err){
       setStatus("❌ Chat error: "+err.message,"err");
     }
